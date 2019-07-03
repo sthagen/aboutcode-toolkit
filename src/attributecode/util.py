@@ -27,7 +27,9 @@ import os
 from os.path import abspath
 from os.path import dirname
 from os.path import join
+
 import posixpath
+from posixpath import basename
 import shutil
 import socket
 import string
@@ -798,6 +800,22 @@ def format_about_dict_for_json_output(about_dictionary_list):
             row_list['licenses'] = licenses_list
         json_formatted_list.append(row_list)
     return json_formatted_list
+
+def as_about_paths(paths):
+    """
+    Return a list of paths to .ABOUT files from a list of `paths`
+    strings.
+    """
+    about_paths = []
+    for path in paths:
+        if path.endswith('.ABOUT'):
+            about_paths.append(path)
+        else:
+            # FIXME: this is not the way to check that a path is a directory, too weak
+            if path.endswith('/'):
+                path += basename(dirname(path))
+            about_paths.append(path + '.ABOUT')
+    return about_paths
 
 class NoDuplicateConstructor(Constructor):
     def construct_mapping(self, node, deep=False):

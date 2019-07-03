@@ -40,7 +40,7 @@ from attributecode.util import inventory_filter
 
 
 __copyright__ = """
-    Copyright (c) 2013-2017 nexB Inc. All rights reserved.
+    Copyright (c) 2013-2019 nexB Inc. All rights reserved.
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -351,7 +351,7 @@ OUTPUT: Path to output file to write the attribution to.
     if location.lower().endswith('.zip'):
         location = extract_zip(location)
 
-    inv_errors, abouts = model.collect_inventory(location, use_mapping=mapping, mapping_file=mapping_file)
+    inv_errors, abouts = model.collect_inventory(location, use_mapping=mapping, mapping_file=mapping_file, inventory_location=inventory)
     no_match_errors = attrib_generate_and_save(
         abouts=abouts, output_location=output,
         use_mapping=mapping, mapping_file=mapping_file, template_loc=template,

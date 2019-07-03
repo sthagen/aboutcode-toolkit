@@ -2,7 +2,7 @@
 # -*- coding: utf8 -*-
 
 # ============================================================================
-#  Copyright (c) 2013-2018 nexB Inc. http://www.nexb.com/ - All rights reserved.
+#  Copyright (c) 2013-2019 nexB Inc. http://www.nexb.com/ - All rights reserved.
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -22,14 +22,11 @@ import codecs
 import collections
 import datetime
 import os
-from posixpath import basename
-from posixpath import dirname
-from posixpath import exists
+
 from posixpath import join
 
 import jinja2
 
-import attributecode
 from attributecode import ERROR
 from attributecode import Error
 from attributecode.attrib_util import get_template
@@ -171,68 +168,8 @@ def generate_and_save(abouts, output_location, use_mapping=False, mapping_file=N
     errors = []
     vartext_dict = {}
 
-    if not inventory_location:
-        updated_abouts = abouts
-    # Do the following if an filter list (inventory_location) is provided
-    else:
-        if not exists(inventory_location):
-            # FIXME: this message does not make sense
-            msg = (u'"INVENTORY_LOCATION" does not exist. Generation halted.')
-            errors.append(Error(ERROR, msg))
-            return errors
-
-        if inventory_location.endswith('.csv') or inventory_location.endswith('.json'):
-            # FIXME: we should use the same inventory lodaing that we use everywhere!!!!
-
-            try:
-                # Return a list which contains only the about file path
-                about_list = attributecode.util.get_about_file_path(
-                    inventory_location, use_mapping=use_mapping, mapping_file=mapping_file)
-            # FIXME: why catching all exceptions?
-            except Exception:
-                # 'about_file_path' key/column doesn't exist
-
-                msg = u"The required key: 'about_file_path' does not exist. Generation halted."
-                errors.append(Error(ERROR, msg))
-                return errors
-        else:
-            # FIXME: this message does not make sense
-            msg = u'Only .csv and .json are supported for the "INVENTORY_LOCATION". Generation halted.'
-            errors.append(Error(ERROR, msg))
-            return errors
-
-        for afp in about_list:
-            lstrip_afp.append(afp.lstrip('/'))
-
-        # return a list of paths that point all to .ABOUT files
-        about_files_list = as_about_paths(lstrip_afp)
-
-        # Collect all the about_file_path
-        for about in abouts:
-            afp_list.append(about.about_file_path)
-
-        # Get the not matching list if any
-        for fp in about_files_list:
-            if not fp in afp_list:
-                not_match_path.append(fp)
-
-        if not_match_path:
-            if len(not_match_path) == len(about_files_list):
-                msg = "None of the paths in the provided 'inventory_location' match with the 'LOCATION'."
-                errors.append(Error(ERROR, msg))
-                return errors
-            else:
-                for path in not_match_path:
-                    msg = 'Path: ' + path + ' cannot be found.'
-                    errors.append(Error(ERROR, msg))
-
-        for about in abouts:
-            for fp in about_files_list:
-                if about.about_file_path == fp:
-                    updated_abouts.append(about)
-
     # Parse license_expression and save to the license list
-    for about in updated_abouts:
+    for about in abouts:
         if about.license_expression.value:
             special_char_in_expression, lic_list = parse_license_expression(about.license_expression.value)
             if special_char_in_expression:
@@ -248,8 +185,8 @@ def generate_and_save(abouts, output_location, use_mapping=False, mapping_file=N
             key = var.partition('=')[0]
             value = var.partition('=')[2]
             vartext_dict[key] = value
-
-    rendered = generate_from_file(updated_abouts, template_loc=template_loc, vartext_dict=vartext_dict)
+    
+    rendered = generate_from_file(abouts, template_loc=template_loc, vartext_dict=vartext_dict)
 
     if rendered:
         output_location = add_unc(output_location)
@@ -258,19 +195,3 @@ def generate_and_save(abouts, output_location, use_mapping=False, mapping_file=N
 
     return errors
 
-
-def as_about_paths(paths):
-    """
-    Return a list of paths to .ABOUT files from a list of `paths`
-    strings.
-    """
-    about_paths = []
-    for path in paths:
-        if path.endswith('.ABOUT'):
-            about_paths.append(path)
-        else:
-            # FIXME: this is not the way to check that a path is a directory, too weak
-            if path.endswith('/'):
-                path += basename(dirname(path))
-            about_paths.append(path + '.ABOUT')
-    return about_paths

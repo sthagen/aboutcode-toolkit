@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf8 -*-
 # ============================================================================
-#  Copyright (c) 2013-2018 nexB Inc. http://www.nexb.com/ - All rights reserved.
+#  Copyright (c) 2013-2019 nexB Inc. http://www.nexb.com/ - All rights reserved.
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
 #  You may obtain a copy of the License at
@@ -34,6 +34,7 @@ import json
 import os
 import posixpath
 from posixpath import dirname
+from posixpath import exists
 
 import yaml
 import re
@@ -63,7 +64,9 @@ from attributecode import api
 from attributecode import Error
 from attributecode import util
 from attributecode.util import add_unc
+from attributecode.util import as_about_paths
 from attributecode.util import copy_license_notice_files
+from attributecode.util import get_about_file_path
 from attributecode.util import on_windows
 from attributecode.util import ungroup_licenses
 from attributecode.util import UNC_PREFIX
@@ -1267,15 +1270,50 @@ def parse(lines):
     return errors, fields
 
 
-def collect_inventory(location, use_mapping=False, mapping_file=None):
+def collect_inventory(location, use_mapping=False, mapping_file=None, inventory_location=None):
     """
     Collect ABOUT files at location and return a list of errors and a list of
     About objects.
     """
     errors = []
     dedup_errors = []
+    about_locations = []
     input_location = util.get_absolute(location)
-    about_locations = list(util.get_about_locations(input_location))
+    if inventory_location:
+        if not exists(inventory_location):
+            # FIXME: this message does not make sense
+            msg = (u'"INVENTORY_LOCATION" does not exist. Generation halted.')
+            errors.append(Error(ERROR, msg))
+            return errors
+        if inventory_location.endswith('.csv') or inventory_location.endswith('.json'):
+        # FIXME: we should use the same inventory loading that we use everywhere!!!!
+            try:
+                # Return a list which contains only the about file path
+                about_file_path = get_about_file_path(inventory_location, use_mapping=use_mapping, mapping_file=mapping_file)
+                about_file_paths = as_about_paths(about_file_path)
+                for about_path in about_file_paths:
+                    if about_path.startswith('/'):
+                        about_path = about_path.lstrip('/')
+                    location = posixpath.join(input_location, about_path)
+                    location = add_unc(location)
+                    if not exists(location):
+                        msg = 'Path: ' + location + ' cannot be found.'
+                        errors.append(Error(ERROR, msg))
+                    else:
+                        about_locations.append(location)
+            # FIXME: why catching all exceptions?
+            except Exception:
+                # 'about_file_path' key/column doesn't exist
+                msg = u"The required key: 'about_file_path' does not exist. Generation halted."
+                errors.append(Error(ERROR, msg))
+                return errors
+        else:
+            # FIXME: this message does not make sense
+            msg = u'Only .csv and .json are supported for the "INVENTORY_LOCATION". Generation halted.'
+            errors.append(Error(ERROR, msg))
+            return errors
+    else:
+        about_locations = list(util.get_about_locations(input_location))
 
     name_errors = util.check_file_names(about_locations)
     errors.extend(name_errors)
