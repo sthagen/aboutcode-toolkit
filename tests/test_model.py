@@ -1135,6 +1135,15 @@ class CollectorTest(unittest.TestCase):
         returned_lic = abouts[0].license_expression.value
         assert expected_lic == returned_lic
 
+    def test_collect_inventory_with_inventory(self):
+        # test_loc = get_test_loc('parse/multi_line_license_expresion.ABOUT')
+        test_loc = get_test_loc('parse/')
+        test_inventory = get_test_loc('parse/inventory.csv')
+        mapping = False
+        mapping_file= None
+        errors, abouts = model.collect_inventory(test_loc, mapping, mapping_file, test_inventory)
+        assert len(abouts) == 1
+
     def test_collect_inventory_with_mapping(self):
         test_loc = get_test_loc('parse/name_mapping_test.ABOUT')
         mapping = True
