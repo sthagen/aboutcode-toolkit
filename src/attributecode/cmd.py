@@ -29,7 +29,7 @@ import click
 # silence unicode literals warnings
 click.disable_unicode_literals_warning = True
 
-from attributecode import WARNING
+from attributecode import WARNING, license_mapping
 from attributecode.util import unique
 
 from attributecode import __about_spec_version__
@@ -39,6 +39,7 @@ from attributecode.attrib import check_template
 from attributecode.attrib import DEFAULT_TEMPLATE_FILE
 from attributecode.attrib import generate_and_save as generate_attribution_doc
 from attributecode.gen import generate as generate_about_files
+from attributecode.license_mapping import mapping
 from attributecode.model import collect_inventory
 from attributecode.model import write_output
 from attributecode.util import extract_zip
@@ -46,7 +47,7 @@ from attributecode.util import filter_errors
 
 
 __copyright__ = """
-    Copyright (c) 2013-2019 nexB Inc and others. All rights reserved.
+    Copyright (c) 2013-2020 nexB Inc and others. All rights reserved.
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
     You may obtain a copy of the License at
@@ -474,6 +475,74 @@ OUTPUT: Path to CSV/JSON inventory file to create.
         click.echo(msg)
     sys.exit(errors_count)
 
+
+######################################################################
+# map_license subcommand
+######################################################################
+
+@about.command(cls=AboutCommand,
+    short_help='Map `license_expression` to `spdx_license_expression` (or the other way around) from an inventory as CSV or JSON.')
+
+@click.argument('location',
+    required=True,
+    metavar='LOCATION',
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=True, readable=True, resolve_path=True))
+
+@click.argument('output',
+    required=True,
+    metavar='OUTPUT',
+    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True))
+
+
+@click.option('--convert_to',
+              required=True,
+              type=click.Choice(['djc', 'spdx']),
+              help='Convert to \'djc\' (aka \'license_expression\') from \'spdx_license_expression\',' 
+                    ' or convert to \'spdx\' (aka \'spdx_licesne_expression\') from \'license_expression\'.'
+              )
+
+@click.option('-q', '--quiet',
+    is_flag=True,
+    help='Do not print error or warning messages.')
+
+@click.option('--verbose',
+    is_flag=True,
+    help='Show all error and warning messages.')
+
+@click.help_option('-h', '--help')
+
+def map_lic(location, output, convert_to, quiet, verbose):
+    """
+Map the 'license_expression' to the 'spdx_license_expression' (or the other way around) from an inventory CSV or JSON
+and output to the same format (CSV or JSON).
+
+LOCATION: Path to a JSON or CSV inventory file.
+
+OUTPUT: Path to a JSON or CSV file.
+    """
+    if not quiet:
+        print_version()
+        click.echo('Mapping licenses...')
+
+    if not location.endswith(('.csv', '.json',)):
+        raise click.UsageError('ERROR: Invalid input file extension: must be one .csv or .json.')
+
+    # Check if the input and output have the same format 
+    input_filename, input_file_extension = os.path.splitext(location)
+    output_filename, output_file_extension = os.path.splitext(output)
+    if not input_file_extension == output_file_extension:
+        raise click.UsageError('ERROR: The file extension of the input and output are not the same.')
+    mapping(location, output, convert_to)
+
+"""
+    errors_count = report_errors(errors, quiet, verbose, log_file_loc=output + '-error.log')
+    if not quiet:
+        abouts_count = len(abouts)
+        msg = '{abouts_count} .ABOUT files generated in {output}.'.format(**locals())
+        click.echo(msg)
+    sys.exit(errors_count)
+"""
 
 ######################################################################
 # Error management

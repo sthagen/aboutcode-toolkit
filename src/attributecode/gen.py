@@ -212,7 +212,7 @@ def update_about_resource(self):
 
 def generate(location, base_dir, reference_dir=None, fetch_license=False):
     """
-    Load ABOUT data from a CSV inventory at `location`. Write ABOUT files to
+    Load ABOUT data from a CSV/JSON inventory at `location`. Write ABOUT files to
     base_dir. Return errors and about objects.
     """
     not_exist_errors = []
