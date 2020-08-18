@@ -724,6 +724,7 @@ class About(object):
             ('license_name', ListField()),
             ('license_file', FileTextField()),
             ('license_url', UrlListField()),
+            ('spdx_license_expression', StringField()),
             ('copyright', StringField()),
             ('notice_file', FileTextField()),
             ('notice_url', UrlField()),
