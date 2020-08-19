@@ -497,8 +497,8 @@ OUTPUT: Path to CSV/JSON inventory file to create.
 
 @click.option('--convert_to',
               required=True,
-              type=click.Choice(['djc', 'spdx']),
-              help='Convert to \'djc\' (aka \'license_expression\') from \'spdx_license_expression\',' 
+              type=click.Choice(['scancode', 'spdx']),
+              help='Convert to \'scancode\' (aka \'license_expression\') from \'spdx_license_expression\',' 
                     ' or convert to \'spdx\' (aka \'spdx_licesne_expression\') from \'license_expression\'.'
               )
 
@@ -533,16 +533,32 @@ OUTPUT: Path to a JSON or CSV file.
     output_filename, output_file_extension = os.path.splitext(output)
     if not input_file_extension == output_file_extension:
         raise click.UsageError('ERROR: The file extension of the input and output are not the same.')
-    mapping(location, output, convert_to)
 
-"""
+    from attributecode.gen import load_inventory
+
+    errors, abouts = load_inventory(
+        location=location,
+        base_dir=output
+    )
+
+    halt = False
+
+    if errors:
+        halt_erorrs = ['CRITICAL', 'ERROR']
+        for severity, message in errors:
+            if severities.get(severity) in halt_erorrs:
+                halt = True
+
+    if not halt:
+        map_errors, abouts = mapping(abouts, convert_to)
+
     errors_count = report_errors(errors, quiet, verbose, log_file_loc=output + '-error.log')
     if not quiet:
         abouts_count = len(abouts)
         msg = '{abouts_count} .ABOUT files generated in {output}.'.format(**locals())
         click.echo(msg)
     sys.exit(errors_count)
-"""
+
 
 ######################################################################
 # Error management

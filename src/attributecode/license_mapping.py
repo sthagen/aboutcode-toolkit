@@ -20,6 +20,7 @@ from __future__ import unicode_literals
 from collections import Counter
 from collections import OrderedDict
 import io
+import os
 import json
 
 import attr
@@ -35,8 +36,28 @@ from attributecode.util import python2
 from attributecode.util import replace_tab_with_spaces
 
 
-def mapping(location, output, convert_to):
-    errors, abouts = load_inventory(
-        location=location,
-        base_dir=output
-    )
+def mapping(abouts, convert_to):
+    errors = []
+    map_file_location = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'spdx_mapping.json')
+    with open(map_file_location, 'r') as f:
+        map_file = json.loads(f.read())
+
+    # The map_file is a dictionary list with spdx license as the key and djc as the value.
+    # If 'convert_to == spdx', we need to create a new mapping file which the djc as the key and spdx as the value.
+    if convert_to == 'djc':
+        mapping_file = map_file.copy()
+    else:
+        mapping_file = {}
+        for k, v in map_file.items():
+            mapping_file[v] = k
+
+    errors, abouts = process_mapping(abouts, mapping_file)
+    
+
+    return errors, abouts
+
+
+def process_mapping(abouts, mapping_file):
+    for about in abouts:
+        print(about)
+
