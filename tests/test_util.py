@@ -147,7 +147,7 @@ class TestResourcePaths(unittest.TestCase):
     def test_invalid_chars_in_file_name(self):
         name = '%657!1351()275612$_$asafg:~|[]{}+-.'
         result = util.invalid_chars(name)
-        expected = ['%', '!', '$', '$', ':']
+        expected = ['!', '$', '$', ':']
         assert expected == result
 
     def test_invalid_chars_with_space_is_valid(self):
@@ -330,7 +330,7 @@ class TestCsv(unittest.TestCase):
         result = util.load_csv(test_file)
         assert expected == result
 
-    def test_format_about_dict_for_csv_output(self):
+    def test_format_about_dict_output(self):
         about = [dict([
             (u'about_file_path', u'/input/about1.ABOUT'),
             (u'about_resource', [u'test.c']),
@@ -345,7 +345,7 @@ class TestCsv(unittest.TestCase):
             (u'license_expression', u'mit AND bsd-new'),
             (u'license_key', u'mit\nbsd-new')])]
 
-        output = util.format_about_dict_for_csv_output(about)
+        output = util.format_about_dict_output(about)
         assert output == expected
 
     def test_load_csv_microsoft_utf_8(self):
@@ -556,12 +556,14 @@ description: sample
                 (u'key', u'mit'),
                 (u'name', u'MIT License'),
                 (u'file', u'mit.LICENSE'),
-                (u'url', u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:mit')]),
+                (u'url', u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:mit'),
+                (u'spdx_license_key', u'MIT')]),
             dict([
                 (u'key', u'bsd-new'),
                 (u'name', u'BSD-3-Clause'),
                 (u'file', u'bsd-new.LICENSE'),
-                (u'url', u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:bsd-new')])
+                (u'url', u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:bsd-new'),
+                (u'spdx_license_key', u'BSD-3-Clause')])
         ]
         expected_lic_key = [u'mit', u'bsd-new']
         expected_lic_name = [u'MIT License', u'BSD-3-Clause']
@@ -569,11 +571,13 @@ description: sample
         expected_lic_url = [
             u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:mit',
             u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:bsd-new']
-        lic_key, lic_name, lic_file, lic_url = util.ungroup_licenses(about)
+        expected_spdx = [u'MIT', u'BSD-3-Clause']
+        lic_key, lic_name, lic_file, lic_url, spdx_lic_key, lic_score = util.ungroup_licenses(about)
         assert expected_lic_key == lic_key
         assert expected_lic_name == lic_name
         assert expected_lic_file == lic_file
         assert expected_lic_url == lic_url
+        assert expected_spdx == spdx_lic_key
 
     def test_unique_does_deduplicate_and_keep_ordering(self):
         items = ['a', 'b', 'd', 'b', 'c', 'a']

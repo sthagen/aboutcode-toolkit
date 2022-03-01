@@ -1,7 +1,7 @@
 .. _specification:
 
 ===============================
-ABOUT File Specification v3.2.1
+ABOUT File Specification v3.2.3
 ===============================
 
 Purpose
@@ -26,8 +26,10 @@ A simple and valid ABOUT file named httpd-2.4.3.tar.gz.ABOUT may look like this:
                 license_expression: apache-2.0
                 licenses:
                     -   key: apache-2.0
-                        name: Apache License 2.0
+                        name: Apache 2.0
                         file: apache-2.0.LICENSE
+                        url: https://scancode-licensedb.aboutcode.org/apache-2.0.LICENSE
+                        spdx_license_key: Apache-2.0
                 notice_file: httpd.NOTICE
                 copyright: Copyright (c) 2012 The Apache Software Foundation.
 
@@ -39,6 +41,7 @@ The meaning of this ABOUT file is:
 -   The file "httpd-2.4.3.tar.gz" was originally downloaded from http://archive.apache.org/dist/httpd/httpd-2.4.3.tar.gz
 -   In the same directory, "apache-2.0.LICENSE" and "httpd.NOTICE" are files that contain respectively the license text and the notice text for this component.
 -   This component is licensed under "apache-2.0"
+-   The license for this component is defined in the SPDX License List at https://spdx.org/licenses/Apache-2.0.html
 
 Specification
 =============
@@ -54,7 +57,7 @@ A file name can contain only these US-ASCII characters:
 
 -   digits from 0 to 9
 -   uppercase and lowercase letters from A to Z
--   the following symbols: ``"_", "-", "+", ".", "(", ")", "~", "[", "]", "{", "}", "@"``
+-   the following symbols: ``"_", "-", "+", ".", "(", ")", "~", "[", "]", "{", "}", "@", "%"``
 -   The case of a file name is not significant. On case-sensitive file systems (such as on Linux), a tool must report an error if two ABOUT files stored in the same directory have the same lowercase file name. This is to ensure that ABOUT files can be used across file systems. The convention is to use a lowercase file name and an uppercase ABOUT extension.
 
 Lines of text
@@ -116,7 +119,7 @@ Fields order and multiple occurrences
 
 The field order does not matter. Multiple occurrences of a field name is not supported.
 
-The tool processing an ABOUT file or CSV/JSON input will issue an error when a field name occurs more than once in the input file.
+The tool processing an ABOUT file or CSV/JSON/XLSX input will issue an error when a field name occurs more than once in the input file.
 
 Field referencing a file
 ------------------------
@@ -227,6 +230,7 @@ Optional Licensing fields
 -   license_expression: The DejaCode license expression that apply to the component. You can separate each identifier using " or " and " and " to document the relationship between multiple license identifiers, such as a choice among multiple licenses (No special characters are allowed).
 -   license_name: The DejaCode license short name for the license (No special characters are allowed).
 -   license_key: The DejaCode license key(s) for the component (No special characters are allowed).
+-   spdx_license_key: The ScanCode LicenseDB spdx_license_key defined for the license at https://scancode-licensedb.aboutcode.org/index.html
 
 Optional Boolean flag fields
 ----------------------------

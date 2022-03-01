@@ -63,20 +63,12 @@ def request_license_data(api_url, api_key, license_key):
         if not license_data['results']:
             msg = u"Invalid 'license': %s" % license_key
             errors.append(Error(ERROR, msg))
-
     except HTTPError as http_e:
         # some auth problem
-        if http_e.code == 403:
-            msg = (u"Authorization denied. Invalid '--api_key'. "
-                   u"License generation is skipped.")
-            errors.append(Error(ERROR, msg))
-        else:
-            # Since no api_url/api_key/network status have
-            # problem detected, it yields 'license' is the cause of
-            # this exception.
-            msg = u"Invalid 'license': %s" % license_key
-            errors.append(Error(ERROR, msg))
-
+        #if http_e.code == 403:
+        msg = (u"Authorization denied. Invalid '--api_key'. "
+               u"License generation is skipped.")
+        errors.append(Error(ERROR, msg))
     except Exception as e:
         errors.append(Error(ERROR, str(e)))
 
@@ -99,7 +91,4 @@ def get_license_details_from_api(api_url, api_key, license_key):
     Missing values are provided as empty strings.
     """
     license_data, errors = request_license_data(api_url, api_key, license_key)
-    license_name = license_data.get('name', '')
-    license_text = license_data.get('full_text', '')
-    license_key = license_data.get('key', '')
-    return license_name, license_key, license_text, errors
+    return license_data, errors

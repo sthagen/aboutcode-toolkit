@@ -23,7 +23,7 @@ In addition, this tool is able to generate attribution notices and
 identify redistributable source code used in your project to help you comply
 with open source licenses conditions.
 
-This version of the AboutCode Toolkit follows the ABOUT specification version 3.2.1 at:
+This version of the AboutCode Toolkit follows the ABOUT specification version 3.2.3 at:
 https://aboutcode-toolkit.readthedocs.io/en/latest/specification.html
 
 
@@ -67,16 +67,20 @@ To install all the needed dependencies in a virtualenv, run (on posix):
 or on windows:
     configure
 
+.. note::
+   For MacOS users, it's a known issue the Python36 may case SSL Certificates error if the Certificates is not up to date.
 
-Activate the virtualenv
+   A solution is to run: `sudo /Applications/Python\\ 3.6/Install\\ Certificates.command` to upgrade the outdated certificates.
+
+ACTIVATE the VIRTUALENV
 -----------------------
 To activate the virtualenv, run (on posix):
-    source bin/activate
+    source venv/bin/activate
 or on windows:
-    bin\\activate
+    venv\\bin\\activate
 
 
-Deactivate the virtualenv
+DEACTIVATE the VIRTUALENV
 -------------------------
 To deactivate the virtualenv, run (on both posix and windows):
     deactivate
@@ -101,12 +105,20 @@ on aboutcode-toolkit usage.
 TESTS and DEVELOPMENT
 ---------------------
 To install all the needed development dependencies, run (on posix):
-    source configure etc/conf/dev
+    ./configure --dev
 or on windows:
-    configure etc/conf/dev
+    configure --dev
 
 To verify that everything works fine you can run the test suite with:
-    py.test
+    pytest
+
+
+CLEAN BUILD AND INSTALLED FILES
+-------------------------------
+To clean the built and installed files, run (on posix):
+    ./configure --clean
+or on windows:
+    configure --clean
 
 
 HELP and SUPPORT

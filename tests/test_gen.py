@@ -69,7 +69,7 @@ class GenTest(unittest.TestCase):
         arp2 = '/test/t!est.c'
         msg = ("Invalid characters present in 'about_resource' "
                    "field: " + arp2)
-        expected2 = Error(CRITICAL, msg)
+        expected2 = Error(ERROR, msg)
         result1 = gen.check_about_resource_filename(arp1)
         result2 = gen.check_about_resource_filename(arp2)
         assert result1 == ''
@@ -78,15 +78,10 @@ class GenTest(unittest.TestCase):
     def test_load_inventory(self):
         location = get_test_loc('test_gen/inv.csv')
         base_dir = get_temp_dir()
-        errors, abouts = gen.load_inventory(location, base_dir)
+        errors, abouts = gen.load_inventory(location, base_dir=base_dir)
 
-        expected_errors = [
-            Error(INFO, 'Field custom1 is a custom field.'),
-            Error(INFO, 'Field about_resource: Path')
-        ]
-        for exp, err in zip(expected_errors, errors):
-            assert exp.severity == err.severity
-            assert err.message.startswith(exp.message)
+        expected_num_errors = 29
+        assert len(errors) == expected_num_errors 
 
         expected = (
 '''about_resource: .
@@ -103,18 +98,45 @@ custom1: |
         result = [a.dumps() for a in abouts]
         assert expected == result[0]
 
+    def test_load_inventory_without_about_resource(self):
+        location = get_test_loc('test_gen/inv_no_about_resource.csv')
+        base_dir = get_temp_dir()
+        from_attrib = False
+        errors, abouts = gen.load_inventory(location, base_dir=base_dir, from_attrib=from_attrib)
+        expected_error = [Error(CRITICAL,  "The essential field 'about_resource' is not found in the <input>")]
+
+        assert errors == expected_error
+        assert abouts == [] 
+
+    def test_load_inventory_without_about_resource_from_attrib(self):
+        location = get_test_loc('test_gen/inv_no_about_resource.csv')
+        base_dir = get_temp_dir()
+        from_attrib = True
+        errors, abouts = gen.load_inventory(location, base_dir=base_dir, from_attrib=from_attrib)
+
+        expected_num_errors = 0
+        assert len(errors) == expected_num_errors 
+
+        expected = (
+'''about_resource: .
+name: AboutCode
+version: 0.11.0
+license_expression: apache-2.0
+'''
+        )
+        result = [a.dumps() for a in abouts]
+        assert expected == result[0]
+
     def test_load_inventory_with_errors(self):
         location = get_test_loc('test_gen/inv4.csv')
         base_dir = get_temp_dir()
-        errors, abouts = gen.load_inventory(location, base_dir)
-
+        errors, abouts = gen.load_inventory(location, base_dir=base_dir)
         expected_errors = [
-            Error(CRITICAL, "Field name: 'confirmed copyright' contains illegal name characters: 0 to 9, a to z, A to Z and _."),
-            Error(INFO, 'Field resource is a custom field.'),
-            Error(INFO, 'Field test is a custom field.'),
-            Error(INFO, 'Field about_resource: Path')
+            Error(ERROR, "Field name: ['confirmed copyright'] contains illegal name characters (or empty spaces) and is ignored."),
+            Error(INFO, 'Field about_resource: Path'),
+            Error(INFO, "Field ['resource', 'test'] is a custom field.")
         ]
-        # assert [] == errors
+
         for exp, err in zip(expected_errors, errors):
             assert exp.severity == err.severity
             assert err.message.startswith(exp.message)
@@ -132,6 +154,43 @@ custom1: |
         )
         result = [a.dumps() for a in abouts]
         assert expected == result[0]
+
+    def test_load_inventory_simple_xlsx(self):
+        location = get_test_loc('test_gen/load/simple_sample.xlsx')
+        base_dir = get_temp_dir()
+        errors, abouts = gen.load_inventory(location, base_dir=base_dir)
+        expected_errors = []
+        result = [(level, e) for level, e in errors if level > INFO]
+        assert expected_errors == result
+
+        assert abouts[0].name.value == 'cryptohash-sha256'
+        assert abouts[1].name.value == 'some_component'
+        
+        assert abouts[0].version.value == 'v 0.11.100.1'
+        assert abouts[1].version.value == 'v 0.0.1'
+
+        assert abouts[0].license_expression.value == 'bsd-new and mit'
+        assert abouts[1].license_expression.value == 'mit'
+
+
+    def test_load_scancode_json(self):
+        location = get_test_loc('test_gen/load/clean-text-0.3.0-lceupi.json')
+        inventory = gen.load_scancode_json(location)
+
+        expected = {'about_resource': 'clean-text-0.3.0', 'type': 'directory',
+                    'name': 'clean-text-0.3.0', 'base_name': 'clean-text-0.3.0',
+                    'extension': '', 'size': 0, 'date': None, 'sha1': None,
+                    'md5': None, 'sha256': None, 'mime_type': None, 'file_type': None,
+                    'programming_language': None, 'is_binary': False, 'is_text': False,
+                    'is_archive': False, 'is_media': False, 'is_source': False,
+                    'is_script': False, 'licenses': [], 'license_expressions': [],
+                    'percentage_of_license_text': 0, 'copyrights': [], 'holders': [],
+                    'authors': [], 'packages': [], 'emails': [], 'urls': [], 'files_count': 9,
+                    'dirs_count': 1, 'size_count': 32826, 'scan_errors': []}
+
+        # We will only check the first element in the inventory list 
+        assert inventory[0] == expected
+
 
     def test_generation_dir_endswith_space(self):
         location = get_test_loc('test_gen/inventory/complex/about_file_path_dir_endswith_space.csv')
@@ -179,11 +238,12 @@ custom1: |
         base_dir = get_temp_dir()
 
         errors, abouts = gen.generate(location, base_dir)
-        msg1 = 'Field custom1 is a custom field.'
-        msg2 = 'Field about_resource'
+        err_msg_list = []
+        for severity, message in errors:
+            err_msg_list.append(message)
+        msg1 = "Field ['custom1'] is a custom field."
 
-        assert msg1 in errors[0].message
-        assert msg2 in errors[1].message
+        assert msg1 in err_msg_list
 
         result = [a.dumps() for a in abouts][0]
         expected = (
@@ -253,42 +313,13 @@ licenses:
         expected = (
 '''about_resource: test.c
 name: test.c
-license_expression: public-domain AND custom
+license_expression: mit AND custom
 licenses:
   - file: custom.txt
 '''
         )
         assert expected == result
 
-    def test_generate_license_key_with_custom_file_450_with_fetch(self):
-        location = get_test_loc('test_gen/lic_issue_450/custom_and_valid_lic_key_with_file.csv')
-        base_dir = get_temp_dir()
-
-        errors, abouts = gen.generate(location, base_dir)
-
-        lic_dict = {u'public-domain': [u'Public Domain',
-                                       u'This component is released to the public domain by the author.',
-                                       u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:public-domain'
-                                       ]}
-        a = abouts[0]
-        a.license_key.value.append('public-domain')
-        a.license_key.value.append('custom')
-        result = a.dumps(lic_dict)
-        expected = (
-'''about_resource: test.c
-name: test.c
-license_expression: public-domain AND custom
-licenses:
-  - key: public-domain
-    name: Public Domain
-    file: public-domain.LICENSE
-    url: https://enterprise.dejacode.com/urn/?urn=urn:dje:license:public-domain
-  - key: custom
-    name: custom
-    file: custom.txt
-'''
-        )
-        assert expected == result
 
     def test_generate_license_key_with_custom_file_450_with_fetch_with_order(self):
         location = get_test_loc('test_gen/lic_issue_450/custom_and_valid_lic_key_with_file.csv')
@@ -296,30 +327,33 @@ licenses:
 
         errors, abouts = gen.generate(location, base_dir)
 
-        lic_dict = {u'public-domain': [u'Public Domain',
-                                       u'This component is released to the public domain by the author.',
-                                       u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:public-domain'
+        lic_dict = {u'mit': [u'MIT License',
+                                       u'mit.LICENSE',
+                                       u'This component is released under MIT License.',
+                                       u'https://enterprise.dejacode.com/urn/?urn=urn:dje:license:mit',
+                                       u'mit'
                                        ]}
         # The first row from the test file
         a = abouts[0]
-        a.license_key.value.append('public-domain')
+        a.license_key.value.append('mit')
         a.license_key.value.append('custom')
         result1 = a.dumps(lic_dict)
         # The second row from the test file
         b = abouts[1]
         b.license_key.value.append('custom')
-        b.license_key.value.append('public-domain')
+        b.license_key.value.append('mit')
         result2 = b.dumps(lic_dict)
 
         expected1 = (
 '''about_resource: test.c
 name: test.c
-license_expression: public-domain AND custom
+license_expression: mit AND custom
 licenses:
-  - key: public-domain
-    name: Public Domain
-    file: public-domain.LICENSE
-    url: https://enterprise.dejacode.com/urn/?urn=urn:dje:license:public-domain
+  - key: mit
+    name: MIT License
+    file: mit.LICENSE
+    url: https://enterprise.dejacode.com/urn/?urn=urn:dje:license:mit
+    spdx_license_key: mit
   - key: custom
     name: custom
     file: custom.txt
@@ -329,15 +363,16 @@ licenses:
         expected2 = (
 '''about_resource: test.h
 name: test.h
-license_expression: custom AND public-domain
+license_expression: custom AND mit
 licenses:
   - key: custom
     name: custom
     file: custom.txt
-  - key: public-domain
-    name: Public Domain
-    file: public-domain.LICENSE
-    url: https://enterprise.dejacode.com/urn/?urn=urn:dje:license:public-domain
+  - key: mit
+    name: MIT License
+    file: mit.LICENSE
+    url: https://enterprise.dejacode.com/urn/?urn=urn:dje:license:mit
+    spdx_license_key: mit
 '''
         )
         assert expected1 == result1

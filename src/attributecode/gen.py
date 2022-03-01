@@ -35,6 +35,7 @@ from attributecode.util import invalid_chars
 from attributecode.util import to_posix
 from attributecode.util import UNC_PREFIX_POSIX
 from attributecode.util import unique
+from attributecode.util import load_scancode_json, load_csv, load_json, load_excel
 
 
 def check_duplicated_columns(location):
@@ -69,8 +70,10 @@ def check_duplicated_columns(location):
         dup_msg = u', '.join(dup_msg)
         msg = ('Duplicated column name(s): %(dup_msg)s\n' % locals() +
                'Please correct the input and re-run.')
-        errors.append(Error(ERROR, msg))
-    return unique(errors)
+        err = Error(ERROR, msg)
+        if not err in errors:
+            errors.append(err)
+    return errors
 
 
 def check_duplicated_about_resource(arp, arp_list):
@@ -109,12 +112,11 @@ def check_about_resource_filename(arp):
     if invalid_chars(arp):
         msg = ("Invalid characters present in 'about_resource' "
                    "field: " + arp)
-        return (Error(CRITICAL, msg))
+        return (Error(ERROR, msg))
     return ''
 
 
-# TODO: this should be either the CSV or the ABOUT files but not both???
-def load_inventory(location, base_dir, reference_dir=None):
+def load_inventory(location, from_attrib=False, base_dir=None, scancode=False, reference_dir=None):
     """
     Load the inventory file at `location` for ABOUT and LICENSE files stored in
     the `base_dir`. Return a list of errors and a list of About objects
@@ -125,64 +127,87 @@ def load_inventory(location, base_dir, reference_dir=None):
     """
     errors = []
     abouts = []
-    base_dir = util.to_posix(base_dir)
-    # FIXME: do not mix up CSV and JSON
-    if location.endswith('.csv'):
-        # FIXME: this should not be done here.
-        dup_cols_err = check_duplicated_columns(location)
-        if dup_cols_err:
-            errors.extend(dup_cols_err)
-            return errors, abouts
-        inventory = util.load_csv(location)
+
+    if base_dir:
+        base_dir = util.to_posix(base_dir)
+    if scancode:
+        inventory = load_scancode_json(location)
     else:
-        inventory = util.load_json(location)
+        if location.endswith('.csv'):
+            dup_cols_err = check_duplicated_columns(location)
+            if dup_cols_err:
+                errors.extend(dup_cols_err)
+                return errors, abouts
+            inventory = load_csv(location)
+        elif location.endswith('.xlsx'):
+            dup_cols_err, inventory = load_excel(location)
+            if dup_cols_err:
+                errors.extend(dup_cols_err)
+                return errors, abouts
+        else:
+            inventory = load_json(location)
 
     try:
         arp_list = []
         errors = []
         for component in inventory:
-            arp = component['about_resource']
-            dup_err = check_duplicated_about_resource(arp, arp_list)
-            if dup_err:
-                errors.append(dup_err)
-            else:
-                arp_list.append(arp)
+            if not from_attrib:
+                arp = component['about_resource']
+                dup_err = check_duplicated_about_resource(arp, arp_list)
+                if dup_err:
+                    if not dup_err in errors:
+                        errors.append(dup_err)
+                else:
+                    arp_list.append(arp)
+
+                invalid_about_filename = check_about_resource_filename(arp)
+                if invalid_about_filename and not invalid_about_filename in errors:
+                    errors.append(invalid_about_filename)
 
             newline_in_file_err = check_newline_in_file_field(component)
-            for err in newline_in_file_err:
-                errors.append(err)
-
-            invalid_about_filename = check_about_resource_filename(arp)
-            if invalid_about_filename:
-                errors.append(invalid_about_filename)
+            if newline_in_file_err:
+                errors.extend(newline_in_file_err)
         if errors:
             return errors, abouts
-
     except Exception as e:
         # TODO: why catch ALL Exception
         msg = "The essential field 'about_resource' is not found in the <input>"
         errors.append(Error(CRITICAL, msg))
         return errors, abouts
 
-    for i, fields in enumerate(inventory):
+    custom_fields_list = []
+    for fields in inventory:
         # check does the input contains the required fields
         required_fields = model.About.required_fields
 
         for f in required_fields:
             if f not in fields:
-                msg = "Required field: %(f)r not found in the <input>" % locals()
-                errors.append(Error(ERROR, msg))
-                return errors, abouts
-        afp = fields.get(model.About.ABOUT_RESOURCE_ATTR)
+                if from_attrib and f == 'about_resource':
+                    continue
+                else:
+                    msg = "Required field: %(f)r not found in the <input>" % locals()
+                    errors.append(Error(CRITICAL, msg))
+                    return errors, abouts
+        # Set about file path to '' if no 'about_resource' is provided from
+        # the input for `attrib`
+        if not 'about_resource' in fields:
+            afp = ''
+        else:
+            afp = fields.get(model.About.ABOUT_RESOURCE_ATTR)
 
+        """
         # FIXME: this should not be a failure condition
         if not afp or not afp.strip():
             msg = 'Empty column: %(afp)r. Cannot generate .ABOUT file.' % locals()
             errors.append(Error(ERROR, msg))
             continue
         else:
-            afp = util.to_posix(afp)
+        """
+        afp = util.to_posix(afp)
+        if base_dir:
             loc = join(base_dir, afp)
+        else:
+            loc = afp
         about = model.About(about_file_path=afp)
         about.location = loc
 
@@ -197,25 +222,45 @@ def load_inventory(location, base_dir, reference_dir=None):
                 updated_resource_value = basename(resource_path)
             fields['about_resource'] = updated_resource_value
 
+        # Set 'about_resource' to '.' if no 'about_resource' is provided from
+        # the input for `attrib`
+        elif not 'about_resource' in fields and from_attrib:
+            fields['about_resource'] = u'.'
+
         ld_errors = about.load_dict(
             fields,
             base_dir,
+            scancode=scancode,
+            from_attrib=from_attrib,
             running_inventory=False,
             reference_dir=reference_dir,
         )
-        """
-        # 'about_resource' field will be generated during the process.
-        # No error need to be raise for the missing 'about_resource'.
-        for e in ld_errors:
-            if e.message == 'Field about_resource is required':
-                ld_errors.remove(e)
-        """
-        for e in ld_errors:
-            if not e in errors:
-                errors.extend(ld_errors)
-        abouts.append(about)
 
-    return unique(errors), abouts
+        for severity, message in ld_errors:
+            if 'Custom Field' in message:
+                field_name = message.replace('Custom Field: ', '').strip()
+                if not field_name in custom_fields_list:
+                    custom_fields_list.append(field_name)
+            else:
+                errors.append(Error(severity, message))
+
+        abouts.append(about)
+    if custom_fields_list:
+        custom_fields_err_msg = 'Field ' + str(custom_fields_list) + ' is a custom field.'
+        errors.append(Error(INFO, custom_fields_err_msg))
+    # Covert the license_score value from string to list of int
+    # The licesne_score is not in the spec but is specify in the scancode license scan.
+    # This key will be treated as a custom string field. Therefore, we need to
+    # convert back to the list with float type for score.
+    if scancode:
+        for about in abouts:
+            try:
+                score_list = list(map(float, about.license_score.value.replace('[', '').replace(']', '').split(',')))
+                about.license_score.value = score_list
+            except:
+                pass
+
+    return errors, abouts
 
 
 def update_about_resource(self):
@@ -261,6 +306,8 @@ def generate(location, base_dir, android=None, reference_dir=None, fetch_license
                     errors.append(e)
 
     for about in abouts:
+        # Strip trailing spaces
+        about.about_file_path = about.about_file_path.strip()
         if about.about_file_path.startswith('/'):
             about.about_file_path = about.about_file_path.lstrip('/')
         dump_loc = join(bdir, about.about_file_path.lstrip('/'))
@@ -304,28 +351,30 @@ def generate(location, base_dir, android=None, reference_dir=None, fetch_license
                     msg = (u'Field about_resource: '
                            u'%(path)s '
                            u'does not exist' % locals())
-                    not_exist_errors.append(msg)
+                errors.append(Error(INFO, msg))
 
             licenses_dict = {}
             if gen_license:
                 # Write generated LICENSE file
                 license_key_name_context_url_list = about.dump_lic(dump_loc, license_dict)
                 if license_key_name_context_url_list:
-                    for lic_key, lic_name, lic_context, lic_url in license_key_name_context_url_list:
-                        licenses_dict[lic_key] = [lic_name, lic_context, lic_url]
-                        gen_license_name = lic_key + u'.LICENSE'
+                    for lic_key, lic_name, lic_filename, lic_context, lic_url, spdx_lic_key in license_key_name_context_url_list:
+                        licenses_dict[lic_key] = [lic_name, lic_filename, lic_context, lic_url, spdx_lic_key]
                         if not lic_name in about.license_name.value:
                             about.license_name.value.append(lic_name)
-                        about.license_file.value[gen_license_name] = license_dict[lic_key][1]
+                        about.license_file.value[lic_filename] = lic_filename
                         if not lic_url in about.license_url.value:
                             about.license_url.value.append(lic_url)
-
+                        if not spdx_lic_key in about.spdx_license_key.value:
+                            about.spdx_license_key.value.append(spdx_lic_key)
                         if about.license_name.value:
                             about.license_name.present = True
                         if about.license_file.value:
                             about.license_file.present = True
                         if about.license_url.value:
                             about.license_url.present = True
+                        if about.spdx_license_key.value:
+                            about.spdx_license_key.present = True
 
             about.dump(dump_loc, licenses_dict)
 
@@ -344,9 +393,6 @@ def generate(location, base_dir, android=None, reference_dir=None, fetch_license
                 else:
                     notice_dict[notice_path] = notice_context
 
-            for e in not_exist_errors:
-                errors.append(Error(INFO, e))
-
         except Exception as e:
             # only keep the first 100 char of the exception
             # TODO: truncated errors are likely making diagnotics harder
@@ -364,5 +410,4 @@ def generate(location, base_dir, android=None, reference_dir=None, fetch_license
                 errors.append(Error(ERROR, msg))
             else:
                 about.dump_android_notice(path, notice_dict[path])
-
-    return unique(errors), abouts
+    return errors, abouts

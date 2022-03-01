@@ -93,7 +93,7 @@ def get_unicode_content(location):
     """
     Read file at location and return a unicode string.
     """
-    with io.open(location, encoding='utf-8') as doc:
+    with io.open(location, encoding='utf-8', errors='replace') as doc:
         return doc.read()
 
 
@@ -430,9 +430,9 @@ class AboutTest(unittest.TestCase):
             'about_resource'])
 
         expected_errors = [
-            Error(INFO, 'Field date is a custom field.'),
-            Error(INFO, 'Field license_spdx is a custom field.'),
-            Error(INFO, 'Field license_text_file is a custom field.')]
+            Error(INFO, 'Custom Field: date'),
+            Error(INFO, 'Custom Field: license_spdx'),
+            Error(INFO, 'Custom Field: license_text_file')]
 
         errors = about.hydrate(fields)
 
@@ -529,9 +529,10 @@ class AboutTest(unittest.TestCase):
         test_file = get_test_loc('test_model/parse/illegal_custom_field.about')
         a = model.About(test_file)
         expected_errors = [
-            Error(INFO, 'Field hydrate is a custom field.'),
+            Error(INFO, 'Custom Field: hydrate'),
             Error(CRITICAL, "Internal error with custom field: 'hydrate': 'illegal name'.")
         ]
+
         assert expected_errors == a.errors
         assert not hasattr(getattr(a, 'hydrate'), 'value')
         field = list(a.custom_fields.values())[0]
@@ -581,7 +582,7 @@ this software and releases the component to Public Domain.
         test_file = get_test_loc('test_model/parse/non_ascii_field_name_value.about')
         a = model.About(test_file)
         expected = [
-            Error(CRITICAL, "Field name: 'mat\xedas' contains illegal name characters: 0 to 9, a to z, A to Z and _. (or empty spaces)")
+            Error(ERROR, "Field name: ['mat\xedas'] contains illegal name characters (or empty spaces) and is ignored.")
         ]
         assert expected == a.errors
 
@@ -690,8 +691,8 @@ this software and releases the component to Public Domain.
             'license_expression': 'license1 AND license2',
             'notice_file': 'package1.zip.NOTICE',
             'licenses': [
-                {'key': 'license1', 'name': 'License1', 'file': 'license1.LICENSE', 'url': 'some_url'},
-                {'key': 'license2', 'name': 'License2', 'file': 'license2.LICENSE', 'url': 'some_url'},
+                {'key': 'license1', 'name': 'License1', 'file': 'license1.LICENSE', 'url': 'some_url', 'spdx_license_key': 'key'},
+                {'key': 'license2', 'name': 'License2', 'file': 'license2.LICENSE', 'url': 'some_url', 'spdx_license_key': 'key'},
             ],
         }
         about = model.About()
@@ -708,12 +709,14 @@ licenses:
     name: License1
     file: license1.LICENSE
     url: some_url
+    spdx_license_key: key
   - key: license2
     name: License2
     file: license2.LICENSE
     url: some_url
+    spdx_license_key: key
 '''
-        lic_dict = {u'license1': [u'License1', u'', u'some_url'], u'license2' : [u'License2', u'', u'some_url']}
+        lic_dict = {u'license1': [u'License1', u'license1.LICENSE',u'', u'some_url', 'key'], u'license2' : [u'License2', u'license2.LICENSE', u'', u'some_url', 'key']}
         assert about.dumps(lic_dict) == expected
 
 
@@ -751,8 +754,8 @@ licenses:
         test_file = get_test_loc('test_model/parse/complete2/about.ABOUT')
         a = model.About(test_file)
         expected_error = [
-            Error(INFO, 'Field custom1 is a custom field.'),
-            Error(INFO, 'Field custom2 is a custom field.'),
+            Error(INFO, 'Custom Field: custom1'),
+            Error(INFO, 'Custom Field: custom2'),
             Error(INFO, 'Field custom2 is present but empty.')
         ]
         assert sorted(expected_error) == sorted(a.errors)
@@ -791,8 +794,8 @@ modified: yes
         test_file = get_test_loc('test_model/parse/complete2/about.ABOUT')
         a = model.About(test_file)
         expected_error = [
-            Error(INFO, 'Field custom1 is a custom field.'),
-            Error(INFO, 'Field custom2 is a custom field.'),
+            Error(INFO, 'Custom Field: custom1'),
+            Error(INFO, 'Custom Field: custom2'),
             Error(INFO, 'Field custom2 is present but empty.')
         ]
         assert sorted(expected_error) == sorted(a.errors)
@@ -840,24 +843,23 @@ custom1: |
         file_path = posixpath.join(posixpath.dirname(test_file), 'nose-selecttests-0.3.zip')
         err_msg = 'Field about_resource: Path %s not found' % file_path
         errors = [
-            Error(INFO, 'Field dje_license is a custom field.'),
-            Error(INFO, 'Field license_text_file is a custom field.'),
-            Error(INFO, 'Field scm_tool is a custom field.'),
-            Error(INFO, 'Field scm_repository is a custom field.'),
-            Error(INFO, 'Field test is a custom field.'),
+            Error(INFO, 'Custom Field: dje_license'),
+            Error(INFO, 'Custom Field: license_text_file'),
+            Error(INFO, 'Custom Field: scm_tool'),
+            Error(INFO, 'Custom Field: scm_repository'),
+            Error(INFO, 'Custom Field: test'),
             Error(INFO, err_msg)]
 
         assert errors == a.errors
         assert 'Copyright (c) 2012, Domen Kožar' == a.copyright.value
 
-    def test_load_has_errors_for_non_unicode(self):
+    def test_load_non_unicode(self):
         test_file = get_test_loc('test_model/unicode/not-unicode.ABOUT')
         a = model.About()
         a.load(test_file)
         err = a.errors[0]
         assert CRITICAL == err.severity
         assert 'Cannot load invalid ABOUT file' in err.message
-        assert 'UnicodeDecodeError' in err.message
 
     def test_as_dict_load_dict_ignores_empties(self):
         test = {
@@ -1030,8 +1032,7 @@ class CollectorTest(unittest.TestCase):
         err_msg1 = 'non-supported_date_format.ABOUT: Field about_resource: Path %s not found' % file_path1
         err_msg2 = 'supported_date_format.ABOUT: Field about_resource: Path %s not found' % file_path2
         expected_errors = [
-            Error(INFO, 'non-supported_date_format.ABOUT: Field date is a custom field.'),
-            Error(INFO, 'supported_date_format.ABOUT: Field date is a custom field.'),
+            Error(INFO, "Field ['date'] is a custom field."),
             Error(INFO, err_msg1),
             Error(INFO, err_msg2)]
         assert sorted(expected_errors) == sorted(errors)
@@ -1068,7 +1069,7 @@ class CollectorTest(unittest.TestCase):
         result = [a.about_file_path for a in abouts]
         assert expected == result
 
-    def test_collect_inventory_return_no_warnings_and_model_can_uuse_relative_paths(self):
+    def test_collect_inventory_return_no_warnings_and_model_can_use_relative_paths(self):
         test_loc = get_test_loc('test_model/rel/allAboutInOneDir')
         errors, _abouts = model.collect_inventory(test_loc)
         expected_errors = []
@@ -1104,18 +1105,17 @@ class CollectorTest(unittest.TestCase):
     def test_collect_inventory_always_collects_custom_fieldsg(self):
         test_loc = get_test_loc('test_model/inventory/custom_fields.ABOUT')
         errors, abouts = model.collect_inventory(test_loc)
-        expected_msg1 = 'Field resource is a custom field'
-        assert len(errors) == 2
-        assert expected_msg1 in errors[0].message
-        # The not supported 'resource' value is collected
+        expected_msg = "Field ['resource', 'custom_mapping'] is a custom field."
+        assert len(errors) == 1
+        assert expected_msg in errors[0].message
+        # The value of the custom field: 'resource' is collected
         assert abouts[0].resource.value
 
     def test_collect_inventory_does_not_raise_error_and_maintains_order_on_custom_fields(self):
         test_loc = get_test_loc('test_model/inventory/custom_fields2.ABOUT')
         errors, abouts = model.collect_inventory(test_loc)
         expected_errors = [
-            Error(INFO, 'inventory/custom_fields2.ABOUT: Field resource is a custom field.'),
-            Error(INFO, 'inventory/custom_fields2.ABOUT: Field custom_mapping is a custom field.')
+            Error(INFO, "Field ['resource', 'custom_mapping'] is a custom field.")
         ]
         assert expected_errors == errors
         expected = [u'about_resource: .\nname: test\nresource: .\ncustom_mapping: test\n']
@@ -1206,8 +1206,7 @@ class CollectorTest(unittest.TestCase):
         location = get_test_loc('test_model/crlf/about.ABOUT')
         result = get_temp_file()
         errors, abouts = model.collect_inventory(location)
-        errors2 = model.write_output(abouts, result, format='csv')
-        errors.extend(errors2)
+        model.write_output(abouts, result, format='csv')
         assert all(e.severity == INFO for e in errors)
 
         expected = get_test_loc('test_model/crlf/expected.csv')
@@ -1276,16 +1275,32 @@ class FetchLicenseTest(unittest.TestCase):
 
     @mock.patch('attributecode.util.have_network_connection')
     @mock.patch('attributecode.model.valid_api_url')
-    def test_pre_process_and_fetch_license_dict(self, have_network_connection, valid_api_url):
+    def test_pre_process_and_fetch_license_dict_dje(self, have_network_connection, valid_api_url):
         have_network_connection.return_value = True
-
         valid_api_url.return_value = False
         error_msg = (
             'Network problem. Please check your Internet connection. '
             'License generation is skipped.')
         expected = ({}, [Error(ERROR, error_msg)])
-        assert model.pre_process_and_fetch_license_dict([], '', '') == expected
+        assert model.pre_process_and_fetch_license_dict([]) == expected
 
         valid_api_url.return_value = True
         expected = ({}, [])
-        assert model.pre_process_and_fetch_license_dict([], '', '') == expected
+        assert model.pre_process_and_fetch_license_dict([]) == expected
+
+    @mock.patch('attributecode.util.have_network_connection')
+    @mock.patch('attributecode.model.valid_api_url')
+    def test_pre_process_and_fetch_license_dict_licensedb(self, have_network_connection, valid_api_url):
+        have_network_connection.return_value = False
+        valid_api_url.return_value = False
+        error_msg = (
+            'Network problem. Please check your Internet connection. '
+            'License generation is skipped.')
+        expected = ({}, [Error(ERROR, error_msg)])
+        assert model.pre_process_and_fetch_license_dict([]) == expected
+
+        have_network_connection.return_value = True
+        valid_api_url.return_value = True
+        expected = ({}, [])
+
+        assert model.pre_process_and_fetch_license_dict([]) == expected
