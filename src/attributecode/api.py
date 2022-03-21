@@ -60,17 +60,19 @@ def request_license_data(api_url, api_key, license_key):
         response_content = response.read().decode('utf-8')
         # FIXME: this should be an ordered dict
         license_data = json.loads(response_content)
-        if not license_data['results']:
+        if not license_data.get('results', []):
             msg = u"Invalid 'license': %s" % license_key
             errors.append(Error(ERROR, msg))
     except HTTPError as http_e:
-        # some auth problem
-        #if http_e.code == 403:
         msg = (u"Authorization denied. Invalid '--api_key'. "
                u"License generation is skipped.")
         errors.append(Error(ERROR, msg))
     except Exception as e:
-        errors.append(Error(ERROR, str(e)))
+        # Already checked the authorization and accessible of the URL.
+        # The only exception left is URL is accessible, but it's not a valid API URL
+        msg = (u"Invalid '--api_url'. "
+               u"License generation is skipped.")
+        errors.append(Error(ERROR, msg))
 
     finally:
         if license_data.get('count') == 1:
