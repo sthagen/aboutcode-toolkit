@@ -80,7 +80,8 @@ Options
 Purpose
 -------
 
-Generate an attribution file which contains license information from the INPUT along with the license text.
+Generate an attribution file which contains license information
+from the INPUT along with the license text.
 
 Assume the following:
 
@@ -156,7 +157,8 @@ Details
 The following data are passed to jinja2 and, therefore, can be used for a custom template:
  * about object: the about objects
  * common_licenses: a common license keys list in licenses.py
- * licenses_list: a license object list contains all the licenses found in about objects. It contains the following attribute: key, name, filename, url, text
+ * licenses_list: a license object list contains all the licenses found in about objects.
+   It contains the following attribute: key, name, filename, url, text
 
 check
 =====
@@ -254,7 +256,8 @@ Options
 Purpose
 -------
 
-Collect sources that have 'redistribute' flagged as 'True' in .ABOUT files or inventory to the output location.
+Collect sources that have 'redistribute' flagged as 'True' in .ABOUT
+files or inventory to the output location.
 
 Details
 ^^^^^^^
@@ -427,7 +430,8 @@ Options
 Purpose
 -------
 
-Fetch licenses (Default: ScanCode LicenseDB) in the license_expression field and save to the output location.
+Fetch licenses (Default: ScanCode LicenseDB) in the license_expression
+field and save to the output location.
 
 Details
 ^^^^^^^
@@ -590,7 +594,9 @@ Options
 Purpose
 -------
 
-Transform the CSV/JSON/XLSX file at LOCATION by applying renamings, filters and checks and then write a new CSV/JSON/Excel to OUTPUT (Format for input and output need to be the same).
+Transform the CSV/JSON/XLSX file at LOCATION by applying renamings,
+filters and checks and then write a new CSV/JSON/Excel to OUTPUT
+(Format for input and output need to be the same).
 
 Details
 ^^^^^^^
@@ -728,4 +734,6 @@ output.csv
 
 Special Notes
 -------------
-When using the field_filters configuration, all the standard required columns (about_resource and name) and the user defined required_fields need to be included.
+When using the field_filters configuration, all the standard required
+columns (about_resource and name) and the user defined required_fields
+need to be included.
