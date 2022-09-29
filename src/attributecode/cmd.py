@@ -41,9 +41,13 @@ from attributecode.model import copy_redist_src
 from attributecode.model import get_copy_list
 from attributecode.model import pre_process_and_fetch_license_dict
 from attributecode.model import write_output
-from attributecode.transform import transform_csv_to_csv
-from attributecode.transform import transform_json_to_json
-from attributecode.transform import transform_excel_to_excel
+from attributecode.transform import transform_data
+from attributecode.transform import transform_csv
+from attributecode.transform import transform_json
+from attributecode.transform import transform_excel
+from attributecode.transform import write_csv
+from attributecode.transform import write_json
+from attributecode.transform import write_excel
 from attributecode.transform import Transformer
 from attributecode.util import extract_zip
 from attributecode.util import filter_errors
@@ -340,7 +344,8 @@ OUTPUT: Path to a directory where license files are saved.
         api_key = djc[1].strip("'").strip('"')
 
     click.echo('Fetching licenses...')
-    license_dict, lic_errors = pre_process_and_fetch_license_dict(abouts, api_url, api_key, scancode)
+    from_check = False
+    license_dict, lic_errors = pre_process_and_fetch_license_dict(abouts, from_check, api_url, api_key, scancode)
 
     if lic_errors:
         errors.extend(lic_errors)
@@ -351,7 +356,7 @@ OUTPUT: Path to a directory where license files are saved.
         if not key in lic_dict_output:
             lic_filename = license_dict[key][1]
             lic_context = license_dict[key][2]
-            lic_dict_output[lic_filename] = lic_context 
+            lic_dict_output[lic_filename] = lic_context
 
     write_errors = write_licenses(lic_dict_output, output)
     if write_errors:
@@ -370,7 +375,7 @@ def validate_template(ctx, param, value):
     if not value:
         return None
 
-    with io.open(value, encoding='utf-8', errors='replace') as templatef:
+    with open(value, encoding='utf-8', errors='replace') as templatef:
         template_error = check_template(templatef.read())
 
     if template_error:
@@ -419,7 +424,7 @@ def validate_template(ctx, param, value):
 @click.option('--reference',
     metavar='DIR',
     type=click.Path(exists=True, file_okay=False, readable=True, resolve_path=True),
-    help='Path to a directory with reference files where "license_file" and/or "notice_file"' 
+    help='Path to a directory with reference files where "license_file" and/or "notice_file"'
         ' located.')
 
 @click.option('--template',
@@ -523,7 +528,8 @@ OUTPUT: Path where to write the attribution document.
             api_key = ''
         api_url = api_url.strip("'").strip('"')
         api_key = api_key.strip("'").strip('"')
-        license_dict, lic_errors = pre_process_and_fetch_license_dict(abouts, api_url, api_key, scancode, reference)
+        from_check = False
+        license_dict, lic_errors = pre_process_and_fetch_license_dict(abouts, from_check, api_url, api_key, scancode, reference)
         errors.extend(lic_errors)
         sorted_license_dict = sorted(license_dict)
 
@@ -710,7 +716,8 @@ LOCATION: Path to an ABOUT file or a directory with ABOUT files.
     errors, abouts = collect_inventory(location)
 
     # Validate license_expression
-    _key_text_dict, errs = pre_process_and_fetch_license_dict(abouts, api_url, api_key)
+    from_check = True
+    _key_text_dict, errs = pre_process_and_fetch_license_dict(abouts, from_check, api_url, api_key)
     for e in errs:
         errors.append(e)
 
@@ -768,8 +775,7 @@ def print_config_help(ctx, param, value):
 def transform(location, output, configuration, quiet, verbose):  # NOQA
     """
 Transform the CSV/JSON/XLSX file at LOCATION by applying renamings, filters and checks
-and then write a new CSV/JSON/XLSX to OUTPUT (Format for input and output need to be
-the same).
+and then write a new CSV/JSON/XLSX to OUTPUT.
 
 LOCATION: Path to a CSV/JSON/XLSX file.
 
@@ -780,16 +786,32 @@ OUTPUT: Path to CSV/JSON/XLSX inventory file to create.
     else:
         transformer = Transformer.from_file(configuration)
 
-    if location.endswith('.csv') and output.endswith('.csv'):
-        errors = transform_csv_to_csv(location, output, transformer)
-    elif location.endswith('.json') and output.endswith('.json'):
-        errors = transform_json_to_json(location, output, transformer)
-    elif location.endswith('.xlsx') and output.endswith('.xlsx'):
-        errors = transform_excel_to_excel(location, output, transformer)
-    else:
-        msg = 'Extension for the input and output need to be the same.'
+    if not transformer:
+        msg = 'Cannot transform without Transformer'
         click.echo(msg)
-        sys.exit()
+        sys.exit(1)
+
+    errors = []
+    updated_data = []
+    new_data = []
+
+    if location.endswith('.csv'):
+        new_data, errors = transform_csv(location)
+    elif location.endswith('.json'):
+        errors = transform_json(location)
+    elif location.endswith('.xlsx'):
+        errors = transform_excel(location)
+
+    if not errors:
+        updated_data, errors = transform_data(new_data, transformer)
+
+    if not errors:
+        if output.endswith('.csv'):
+            write_csv(output, updated_data)
+        elif output.endswith('.json'):
+            write_json(output, updated_data)
+        else:
+            write_excel(output, updated_data)
 
     if not quiet:
         print_version()
@@ -822,7 +844,7 @@ def report_errors(errors, quiet, verbose, log_file_loc=None):
             for msg in log_msgs:
                 click.echo(msg)
         if log_msgs and log_file_loc:
-            with io.open(log_file_loc, 'w', encoding='utf-8', errors='replace') as lf:
+            with open(log_file_loc, 'w', encoding='utf-8', errors='replace') as lf:
                 lf.write('\n'.join(log_msgs))
             click.echo("Error log: " + log_file_loc)
     return severe_errors_count

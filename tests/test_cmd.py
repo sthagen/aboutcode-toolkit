@@ -136,8 +136,6 @@ def test_report_errors_with_verbose_flag(capsys):
         'DEBUG: msg4',
         'NOTSET: msg4'
     ]
-    print("@@@@@@@@@@@@@@@@@@@@@@@@")
-    print(out.splitlines(False))
     assert expected_out == out.splitlines(False)
     assert '' == err
 
@@ -156,7 +154,7 @@ def test_report_errors_can_write_to_logfile():
     result_file = get_temp_file()
     _ec = cmd.report_errors(errors, quiet=False, verbose=True,
                            log_file_loc=result_file)
-    with io.open(result_file, 'r', encoding='utf-8', errors='replace') as rf:
+    with open(result_file, 'r', encoding='utf-8', errors='replace') as rf:
         result = rf.read()
     expected = [
         'Command completed with 6 errors or warnings.',
@@ -334,10 +332,6 @@ def check_about_stdout(options, expected_loc, regen=False):
     with open(expected_file, 'r') as ef:
         expected = ef.read()
 
-    print("!!!!!!!!!!!!!!!!!!!!")
-    print(expected.splitlines(False))
-    print("#####################")
-    print(result.output.splitlines(False))
     assert expected.splitlines(False) == result.output.splitlines(False)
 
 

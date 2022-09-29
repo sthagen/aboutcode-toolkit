@@ -585,7 +585,7 @@ class FileTextField(PathField):
             try:
                 # TODO: we have lots the location by replacing it with a text
                 location = add_unc(location)
-                with io.open(location, encoding='utf-8', errors='replace') as txt:
+                with open(location, encoding='utf-8', errors='replace') as txt:
                     text = txt.read()
                 self.value[path] = text
             except Exception as e:
@@ -995,7 +995,7 @@ class About(object):
         errors = []
         try:
             loc = add_unc(loc)
-            with io.open(loc, encoding='utf-8', errors='replace') as txt:
+            with open(loc, encoding='utf-8', errors='replace') as txt:
                 input_text = txt.read()
             if not input_text:
                 msg = 'ABOUT file is empty: %(location)r'
@@ -1051,7 +1051,7 @@ class About(object):
                 continue
             if key == u'licenses':
                 # FIXME: use a license object instead
-                lic_key, lic_name, lic_file, lic_url, spdx_lic_key, lic_score = ungroup_licenses(value)
+                lic_key, lic_name, lic_file, lic_url, spdx_lic_key, lic_score, lic_matched_text = ungroup_licenses(value)
                 if lic_key:
                     fields.append(('license_key', lic_key))
                 if lic_name:
@@ -1067,6 +1067,8 @@ class About(object):
                 # The license score is a key from scancode license scan
                 if lic_score:
                     fields.append(('license_score', lic_score))
+                if lic_matched_text:
+                    fields.append(('matched_text', lic_matched_text))
                 # The licenses field has been ungrouped and can be removed.
                 # Otherwise, it will gives the following INFO level error
                 # 'Field licenses is a custom field.'
@@ -1235,7 +1237,7 @@ class About(object):
         if on_windows:
             about_file_path = add_unc(about_file_path)
 
-        with io.open(about_file_path, mode='w', encoding='utf-8', errors='replace') as dumped:
+        with open(about_file_path, mode='w', encoding='utf-8', errors='replace') as dumped:
             dumped.write(genereated_tk_version)
             dumped.write(self.dumps(lic_dict))
 
@@ -1246,7 +1248,7 @@ class About(object):
         if on_windows:
             path = add_unc(path)
 
-        with io.open(path, mode='w', encoding='utf-8', errors='replace') as dumped:
+        with open(path, mode='w', encoding='utf-8', errors='replace') as dumped:
             dumped.write(context)
 
     def android_module_license(self, about_parent_path):
@@ -1317,7 +1319,7 @@ class About(object):
                         license_name, license_filename, license_context, license_url, spdx_license_key = license_dict[lic_key]
                         license_info = (lic_key, license_name, license_filename, license_context, license_url, spdx_license_key)
                         license_key_name_context_url.append(license_info)
-                        with io.open(license_path, mode='w', encoding='utf-8', newline='\n', errors='replace') as lic:
+                        with open(license_path, mode='w', encoding='utf-8', newline='\n', errors='replace') as lic:
                             lic.write(license_context)
                     else:
                         # Invalid license issue is already handled
@@ -1372,7 +1374,7 @@ def collect_abouts_license_expression(location):
     for loc in about_locations:
         try:
             loc = add_unc(loc)
-            with io.open(loc, encoding='utf-8', errors='replace') as txt:
+            with open(loc, encoding='utf-8', errors='replace') as txt:
                 input_text = txt.read()
             # saneyaml.load() will have parsing error if the input has
             # tab value. Therefore, we should check if the input contains
@@ -1627,12 +1629,12 @@ def write_output(abouts, location, format):  # NOQA
         save_as_excel(location, about_dicts)
 
 def save_as_json(location, about_dicts):
-    with io.open(location, mode='w') as output_file:
+    with open(location, mode='w') as output_file:
         data = util.format_about_dict_for_json_output(about_dicts)
         output_file.write(json.dumps(data, indent=2))
 
 def save_as_csv(location, about_dicts, field_names):
-    with io.open(location, mode='w', encoding='utf-8', newline='', errors='replace') as output_file:
+    with open(location, mode='w', encoding='utf-8', newline='', errors='replace') as output_file:
         writer = csv.DictWriter(output_file, field_names)
         writer.writeheader()
         csv_formatted_list = util.format_about_dict_output(about_dicts)
@@ -1643,7 +1645,7 @@ def save_as_excel(location, about_dicts):
     formatted_list = util.format_about_dict_output(about_dicts)
     write_excel(location, formatted_list)
 
-def pre_process_and_fetch_license_dict(abouts, api_url=None, api_key=None, scancode=False, reference=None):
+def pre_process_and_fetch_license_dict(abouts, from_check=False, api_url=None, api_key=None, scancode=False, reference=None):
     """
     Return a dictionary containing the license information (key, name, text, url)
     fetched from the ScanCode LicenseDB or DejaCode API.
@@ -1660,7 +1662,7 @@ def pre_process_and_fetch_license_dict(abouts, api_url=None, api_key=None, scanc
         url = 'https://scancode-licensedb.aboutcode.org/'
     if util.have_network_connection():
         if not valid_api_url(url):
-            msg = u"URL not reachable. Invalid 'URL'. License generation is skipped."
+            msg = u"URL not reachable. Invalid 'URL. License generation is skipped."
             errors.append(Error(ERROR, msg))
     else:
         msg = u'Network problem. Please check your Internet connection. License generation is skipped.'
@@ -1710,9 +1712,13 @@ def pre_process_and_fetch_license_dict(abouts, api_url=None, api_key=None, scanc
                                 if msg == "Invalid '--api_url'. License generation is skipped.":
                                     errors.extend(errs)
                                     return key_text_dict, errors
-                            for severity, message in errs: 
+                            for severity, message in errs:
                                 msg = (about.about_file_path + ": " + message)
                                 errors.append(Error(severity, msg))
+                            # We don't want to actually get the license information from the
+                            # check utility
+                            if from_check:
+                                continue
                             if not license_data:
                                 continue
                             license_name = license_data.get('short_name', '')
@@ -1725,6 +1731,10 @@ def pre_process_and_fetch_license_dict(abouts, api_url=None, api_key=None, scanc
                             license_text_url = url + lic_key + '.LICENSE'
                             try:
                                 json_url = urlopen(license_url)
+                                # We don't want to actually get the license information from the
+                                # check utility
+                                if from_check:
+                                    continue
                                 data = json.loads(json_url.read())
                                 license_name = data['short_name']
                                 license_text = urllib.request.urlopen(license_text_url).read().decode('utf-8')
@@ -1738,12 +1748,13 @@ def pre_process_and_fetch_license_dict(abouts, api_url=None, api_key=None, scanc
                                     msg = u"Invalid 'license': " + lic_key
                                 errors.append(Error(ERROR, msg))
                                 continue
-                        detail_list.append(license_name)
-                        detail_list.append(license_filename)
-                        detail_list.append(license_text)
-                        detail_list.append(lic_url)
-                        detail_list.append(spdx_license_key)
-                        key_text_dict[lic_key] = detail_list
+                        if not from_check:
+                            detail_list.append(license_name)
+                            detail_list.append(license_filename)
+                            detail_list.append(license_text)
+                            detail_list.append(lic_url)
+                            detail_list.append(spdx_license_key)
+                            key_text_dict[lic_key] = detail_list
                 if not about.license_key.value:
                     about.license_key.value = lic_list
 

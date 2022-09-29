@@ -262,7 +262,7 @@ def load_csv(location):
     for each row.
     """
     results = []
-    with codecs.open(location, mode='rb', encoding='utf-8-sig',
+    with open(location, mode='r', encoding='utf-8-sig',
                      errors='replace') as csvfile:
         for row in csv.DictReader(csvfile):
             # convert all the column keys to lower case
@@ -472,6 +472,7 @@ def ungroup_licenses(licenses):
     lic_url = []
     spdx_lic_key = []
     lic_score = []
+    lic_matched_text = []
     for lic in licenses:
         if 'key' in lic:
             lic_key.append(lic['key'])
@@ -485,7 +486,9 @@ def ungroup_licenses(licenses):
             spdx_lic_key.append(lic['spdx_license_key'])
         if 'score' in lic:
             lic_score.append(lic['score'])
-    return lic_key, lic_name, lic_file, lic_url, spdx_lic_key, lic_score
+        if 'matched_text' in lic:
+            lic_matched_text.append(lic['matched_text'])
+    return lic_key, lic_name, lic_file, lic_url, spdx_lic_key, lic_score, lic_matched_text
 
 
 # FIXME: add docstring
@@ -689,7 +692,7 @@ def load_excel(location):
     while index <= max_col:
         value = sheet_obj.cell(row=1, column=index).value
         if value in col_keys:
-            msg = 'Duplicated column name, ' + str(value) + ', detected.' 
+            msg = 'Duplicated column name, ' + str(value) + ', detected.'
             errors.append(Error(CRITICAL, msg))
             return errors, results
         if value in mapping_dict:
@@ -721,7 +724,7 @@ def write_licenses(lic_dict, location):
     try:
         for lic in lic_dict:
             output_location = posixpath.join(loc, lic)
-            with io.open(output_location, 'w', encoding='utf-8', errors='replace') as out:
+            with open(output_location, 'w', encoding='utf-8', errors='replace') as out:
                 out.write(lic_dict[lic])
     except Exception as e:
         msg = str(e)

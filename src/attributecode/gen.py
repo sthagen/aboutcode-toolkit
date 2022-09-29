@@ -44,7 +44,7 @@ def check_duplicated_columns(location):
     at location.
     """
     location = add_unc(location)
-    with codecs.open(location, 'rb', encoding='utf-8-sig', errors='replace') as csvfile:
+    with open(location, mode='r', encoding='utf-8-sig', errors='replace') as csvfile:
         reader = csv.reader(csvfile)
         columns = next(reader)
         columns = [col for col in columns]
@@ -235,7 +235,6 @@ def load_inventory(location, from_attrib=False, base_dir=None, scancode=False, r
             running_inventory=False,
             reference_dir=reference_dir,
         )
-
         for severity, message in ld_errors:
             if 'Custom Field' in message:
                 field_name = message.replace('Custom Field: ', '').strip()
