@@ -1,5 +1,14 @@
 ==============================
 Changelog
+
+2023-07-14
+    Release 9.0.0
+
+    * The tool will now show which worksheet (if .xlsx input) is the tool working on
+    * Error handling if defined worksheet does not exist
+    * Adopt 3.3.1 specification: introduce ``ignored_resources``
+
+
 2023-03-09
     Release 8.0.0
 
