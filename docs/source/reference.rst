@@ -263,14 +263,14 @@ Options
 
         ..  code-block:: none
 
-                --from-inventory FILE  Path to an inventory CSV/JSON file as the base list
-                                       for files/directories that need to be copied which
-                                       have the 'redistribute' flagged.
-                --with-structures      Copy sources with directory structure.
-                --zip                  Zip the copied sources to the output location.
-                -q, --quiet            Do not print error or warning messages.
-                --verbose              Show all error and warning messages.
-                -h, --help             Show this message and exit.
+            --from-inventory FILE  Path to an inventory CSV/JSON/XLSX file as the base
+                                    list for files/directories that need to be copied
+                                    which have the 'redistribute' flagged.
+            --with-structures      Copy sources with directory structure.
+            --zip                  Zip the copied sources to the output location.
+            -q, --quiet            Do not print error or warning messages.
+            --verbose              Show all error and warning messages.
+            -h, --help             Show this message and exit.
 
 Purpose
 -------
@@ -772,3 +772,11 @@ Special Notes
 When using the field_filters configuration, all the standard required
 columns (about_resource and name) and the user defined required_fields
 need to be included.
+
+Notes
+=====
+The AboutCode Toolkit version 10.0.0 will work with input from Scancode Toolkit
+version 32.0.0 or later. If you are using an earlier version of Scancode Toolkit,
+specifically version 31 or older, it will only be compatible with prior versions
+of AboutCode Toolkit.
+
