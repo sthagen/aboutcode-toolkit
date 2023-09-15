@@ -1,7 +1,13 @@
 ==============================
 Changelog
 
-xxxx-xx-xx
+2023-xx-xx
+    Release 10.0.1
+
+    * Fixed `transform` with nested list #531
+    * Added curl dependency in Dockerfile #532
+
+2023-08-20
     Release 10.0.0
 
     * Fixd error in load_json in util.py
